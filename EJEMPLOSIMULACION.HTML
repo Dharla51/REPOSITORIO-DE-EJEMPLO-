@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemelo Digital — Suspensión Vehicular v2</title>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <h1>Gemelo Digital</h1>
+    <span class="sub">// SUSPENSIÓN VEHICULAR · SIMULACIÓN EN TIEMPO REAL v2</span>
+  </div>
+  <div class="hdr-badges">
+    <span class="hdr-badge hbd-cyan">DUAL MASS</span>
+    <span class="hdr-badge hbd-orange">VISCOSIDAD NL</span>
+    <span class="hdr-badge hbd-cyan">TEMP DAMPER</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <div class="panel">
+
+    <!-- CHASIS -->
+    <div>
+      <div class="sec-title">Masa Suspendida (Chasis)</div>
+      <div class="sl-group">
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Masa chasis (m₁)</span>
+            <span class="sl-val gr" id="v-m">5.0 kg</span>
+          </div>
+          <input type="range" id="s-m" class="gr" min="0.5" max="25" step="0.1" value="5">
+          <span class="sl-hint">↑ más masa → rebote más lento, mayor inercia</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Rigidez suspensión (k₁)</span>
+            <span class="sl-val" id="v-k">50 N/m</span>
+          </div>
+          <input type="range" id="s-k" min="2" max="350" step="1" value="50">
+          <span class="sl-hint">↑ más rígido → frecuencia natural mayor</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Amortiguador viscoso (b₁)</span>
+            <span class="sl-val or" id="v-b">0.0 Ns/m</span>
+          </div>
+          <input type="range" id="s-b" class="or" min="0" max="120" step="0.5" value="0">
+          <span class="sl-hint">amortiguamiento lineal — fluido viscoso base</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Viscosidad no-lineal (β)</span>
+            <span class="sl-val pu" id="v-nl">0.00</span>
+          </div>
+          <input type="range" id="s-nl" class="pu" min="0" max="5" step="0.05" value="0">
+          <span class="sl-hint">F_damp += β·ẋ² — efecto fluido espeso / shear thickening</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MASA NO SUSPENDIDA -->
+    <div>
+      <div class="sec-title or">Masa No Suspendida (Rueda/Eje)</div>
+      <div class="sl-group">
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Masa rueda+eje (m₂)</span>
+            <span class="sl-val or" id="v-m2">0.8 kg</span>
+          </div>
+          <input type="range" id="s-m2" class="or" min="0.1" max="5" step="0.05" value="0.8">
+          <span class="sl-hint">↑ más inercia en rueda → peor contacto con suelo</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Rigidez neumático (k₂)</span>
+            <span class="sl-val or" id="v-k2">180 N/m</span>
+          </div>
+          <input type="range" id="s-k2" class="or" min="20" max="600" step="5" value="180">
+          <span class="sl-hint">↑ más inflado → neumático más rígido (presión)</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Coef. restitución (e)</span>
+            <span class="sl-val or" id="v-rest">0.30</span>
+          </div>
+          <input type="range" id="s-rest" class="or" min="0" max="1" step="0.01" value="0.3">
+          <span class="sl-hint">0 = rueda pegajosa / 1 = rebote elástico total</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BACHES -->
+    <div>
+      <div class="sec-title">Perfil de Baches</div>
+      <div class="sl-group">
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Fuerza del bache (F)</span>
+            <span class="sl-val or" id="v-f">3.0 N</span>
+          </div>
+          <input type="range" id="s-f" class="or" min="0.2" max="20" step="0.1" value="3">
+          <span class="sl-hint">impulso vertical al golpear</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Frecuencia de baches</span>
+            <span class="sl-val" id="v-freq">0.5 /s</span>
+          </div>
+          <input type="range" id="s-freq" min="0.1" max="4" step="0.05" value="0.5">
+          <span class="sl-hint">cada cuánto aparece un bache</span>
+        </div>
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Duración del impacto</span>
+            <span class="sl-val gr" id="v-dur">0.12 s</span>
+          </div>
+          <input type="range" id="s-dur" class="gr" min="0.02" max="0.5" step="0.01" value="0.12">
+          <span class="sl-hint">qué tan abrupto/gradual es el golpe</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMULACIÓN -->
+    <div>
+      <div class="sec-title gr">Simulación</div>
+      <div class="sl-group">
+        <div class="sl-row">
+          <div class="sl-label">
+            <span class="sl-name">Velocidad del auto</span>
+            <span class="sl-val gr" id="v-spd">1.0 ×</span>
+          </div>
+          <input type="range" id="s-spd" class="gr" min="0.2" max="5" step="0.1" value="1">
+          <span class="sl-hint">multiplica la velocidad de toda la sim.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIAGNÓSTICO -->
+    <div>
+      <div class="sec-title pu">Diagnóstico en Vivo</div>
+      <div class="diag-box">
+        <div class="diag-row">
+          <span class="diag-lbl">ωn₁ — Frec. Natural Chasis</span>
+          <span class="diag-v cy" id="d-wn">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">ωn₂ — Frec. Natural Rueda</span>
+          <span class="diag-v or" id="d-wn2">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">ζ — Factor amort. efectivo</span>
+          <span class="diag-v cy" id="d-zeta">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">x₁(t) — Posición chasis</span>
+          <span class="diag-v" id="d-pos">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">x₂(t) — Posición rueda</span>
+          <span class="diag-v or" id="d-pos2">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">ẋ₁(t) — Velocidad chasis</span>
+          <span class="diag-v" id="d-vel">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">F(t) — Fuerza bache</span>
+          <span class="diag-v or" id="d-force">—</span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-lbl">F_damp NL — Viscosidad β</span>
+          <span class="diag-v pu" id="d-nl">—</span>
+        </div>
+        <!-- Temperature -->
+        <div class="temp-bar-wrap">
+          <div class="diag-row" style="margin-bottom:3px;">
+            <span class="diag-lbl">🌡 Temp. amortiguador</span>
+            <span class="diag-v ye" id="d-temp">25°C</span>
+          </div>
+          <div class="temp-bar-bg">
+            <div class="temp-bar-fill" id="temp-bar"></div>
+          </div>
+          <div class="temp-label"><span>25°C</span><span>180°C</span></div>
+        </div>
+        <div class="diag-row" style="margin-top:2px;">
+          <span class="diag-lbl">b_efectivo (temp-degradado)</span>
+          <span class="diag-v or" id="d-beff">—</span>
+        </div>
+        <div class="state-badge st-sub" id="d-state">ANALIZANDO…</div>
+      </div>
+    </div>
+
+    <!-- ENERGÍAS -->
+    <div>
+      <div class="sec-title">Energías del Sistema</div>
+      <div class="energy-grid">
+        <div class="energy-cell">
+          <span class="energy-lbl">E_cin</span>
+          <span class="energy-v" id="e-kin" style="color:var(--accent)">—</span>
+          <div class="energy-bar"><div class="energy-bar-fill" id="eb-kin" style="background:var(--accent);width:0%"></div></div>
+        </div>
+        <div class="energy-cell">
+          <span class="energy-lbl">E_pot</span>
+          <span class="energy-v" id="e-pot" style="color:var(--green)">—</span>
+          <div class="energy-bar"><div class="energy-bar-fill" id="eb-pot" style="background:var(--green);width:0%"></div></div>
+        </div>
+        <div class="energy-cell">
+          <span class="energy-lbl">E_total</span>
+          <span class="energy-v" id="e-tot" style="color:var(--yellow)">—</span>
+          <div class="energy-bar"><div class="energy-bar-fill" id="eb-tot" style="background:var(--yellow);width:0%"></div></div>
+        </div>
+        <div class="energy-cell">
+          <span class="energy-lbl">P_disip</span>
+          <span class="energy-v" id="e-diss" style="color:var(--accent2)">—</span>
+          <div class="energy-bar"><div class="energy-bar-fill" id="eb-diss" style="background:var(--accent2);width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <div class="right">
+
+    <div id="scene">
+      <div id="road">
+        <div class="rline" style="left:0;animation-delay:0s"></div>
+        <div class="rline" style="left:120px;animation-delay:-.6s"></div>
+        <div class="rline" style="left:240px;animation-delay:-.9s"></div>
+        <div class="rline" style="left:360px;animation-delay:-.3s"></div>
+        <div class="rline" style="left:480px;animation-delay:-.95s"></div>
+        <div class="rline" style="left:600px;animation-delay:-.5s"></div>
+        <div class="rline" style="left:720px;animation-delay:-.15s"></div>
+        <div class="rline" style="left:840px;animation-delay:-.75s"></div>
+        <div class="rline" style="left:960px;animation-delay:-.45s"></div>
+      </div>
+
+      <div id="bache-container"></div>
+      <div id="particles"></div>
+      <div id="flash"></div>
+
+      <div id="car">
+        <!-- Springs (SVG zigzag) -->
+        <svg class="spring-svg" id="sp-l" width="8" height="22" viewBox="0 0 8 22">
+          <polyline id="spline-l" points="4,0 0,3 8,7 0,11 8,15 4,22"
+            stroke="#00e5ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/>
+        </svg>
+        <svg class="spring-svg" id="sp-r" width="8" height="22" viewBox="0 0 8 22">
+          <polyline id="spline-r" points="4,0 0,3 8,7 0,11 8,15 4,22"
+            stroke="#00e5ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".5"/>
+        </svg>
+
+        <!-- Dampers -->
+        <div class="damper" id="dm-l" style="height:18px;">
+          <div class="damper-piston"></div>
+          <div class="damper-glow" id="dg-l"></div>
+        </div>
+        <div class="damper" id="dm-r" style="height:18px;">
+          <div class="damper-piston"></div>
+          <div class="damper-glow" id="dg-r"></div>
+        </div>
+
+        <!-- Car body SVG -->
+        <svg class="body-svg" width="140" height="58" viewBox="0 0 140 58" fill="none">
+          <!-- Undercarriage / subframe -->
+          <rect x="5" y="28" width="130" height="26" rx="5" fill="#141c28"/>
+          <rect x="5" y="28" width="130" height="26" rx="5" stroke="#263550" stroke-width="1.5"/>
+          <!-- Cabin -->
+          <path d="M32 28 L40 8 L100 8 L108 28 Z" fill="#0f1825" stroke="#263550" stroke-width="1.5"/>
+          <!-- Rear window -->
+          <path d="M72 26 L72 10 L97 10 L105 26 Z" fill="#09152a" stroke="#1e3055" stroke-width=".8"/>
+          <path d="M74 24 L74 12 L86 12 L83 24 Z" fill="rgba(0,229,255,.05)"/>
+          <!-- Front window -->
+          <path d="M42 26 L46 10 L70 10 L70 26 Z" fill="#09152a" stroke="#1e3055" stroke-width=".8"/>
+          <path d="M44 24 L47 12 L58 12 L55 24 Z" fill="rgba(0,229,255,.05)"/>
+          <!-- Windshield glint -->
+          <line x1="44" y1="14" x2="52" y2="24" stroke="rgba(0,229,255,.12)" stroke-width="1"/>
+          <!-- Headlight halo -->
+          <ellipse cx="130" cy="38" rx="7" ry="4.5" fill="#00e5ff" opacity=".85"/>
+          <ellipse cx="130" cy="38" rx="4.5" ry="2.8" fill="white" opacity=".55"/>
+          <ellipse cx="130" cy="38" rx="2" ry="1.5" fill="white"/>
+          <ellipse cx="136" cy="38" rx="5.5" ry="3" fill="rgba(0,229,255,.2)"/>
+          <!-- Tail light -->
+          <rect x="5" y="34" width="7" height="11" rx="2" fill="#ff2200" opacity=".85"/>
+          <rect x="5" y="34" width="7" height="11" rx="2" stroke="#ff4400" stroke-width=".8" fill="none"/>
+          <!-- Roof panel line -->
+          <rect x="6" y="30" width="128" height="2" rx="1" fill="rgba(0,229,255,.12)"/>
+          <!-- Door line -->
+          <line x1="70" y1="28" x2="70" y2="54" stroke="#1e2a3e" stroke-width=".8"/>
+          <!-- Side trim -->
+          <rect x="6" y="44" width="128" height="1.5" rx=".75" fill="rgba(0,229,255,.08)"/>
+        </svg>
+
+        <!-- Wheel assemblies (independent) -->
+        <div class="wheel-assy" id="wa-l">
+          <div class="axle-rod"></div>
+          <div class="wheel" id="wl"></div>
+        </div>
+        <div class="wheel-assy" id="wa-r">
+          <div class="axle-rod"></div>
+          <div class="wheel" id="wr"></div>
+        </div>
+      </div>
+
+    </div><!-- /scene -->
+
+    <div class="chart-wrap">
+      <div class="chart-hdr">
+        <div class="chart-tabs">
+          <button class="ctab active" onclick="setTab(0)">POSICIÓN</button>
+          <button class="ctab" onclick="setTab(1)">ENERGÍA</button>
+          <button class="ctab" onclick="setTab(2)">FASE</button>
+        </div>
+        <div class="legend" id="chart-legend">
+          <span><span class="ldot" style="background:#00ff88"></span>x₁ chasis</span>
+          <span><span class="ldot" style="background:#ff6b00"></span>x₂ rueda</span>
+          <span><span class="ldot" style="background:rgba(255,107,0,.5)"></span>F(t)</span>
+        </div>
+      </div>
+      <canvas id="chart"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// =====================================================
+//  PARAMETERS
+// =====================================================
+const P = {
+  m:5, k:50, b:0, nl:0,    // chassis
+  m2:0.8, k2:180, rest:0.3, // wheel
+  f:3, freq:0.5, dur:0.12,
+  spd:1
+};
+const FORCE_SCALE = 8;
+
+// =====================================================
+//  SLIDER BINDINGS
+// =====================================================
+function bind(id, key, vidId, fmt, cls) {
+  const el  = document.getElementById(id);
+  const vel = document.getElementById(vidId);
+  function update() {
+    P[key] = parseFloat(el.value);
+    vel.textContent = fmt(P[key]);
+    if (['m','k','b','nl','m2','k2'].includes(key)) updateDiag();
+  }
+  el.addEventListener('input', update);
+  update();
+}
+bind('s-m',   'm',    'v-m',    v => v.toFixed(1)+' kg');
+bind('s-k',   'k',    'v-k',    v => v.toFixed(0)+' N/m');
+bind('s-b',   'b',    'v-b',    v => v.toFixed(1)+' Ns/m');
+bind('s-nl',  'nl',   'v-nl',   v => v.toFixed(2));
+bind('s-m2',  'm2',   'v-m2',   v => v.toFixed(2)+' kg');
+bind('s-k2',  'k2',   'v-k2',   v => v.toFixed(0)+' N/m');
+bind('s-rest','rest', 'v-rest', v => v.toFixed(2));
+bind('s-f',   'f',    'v-f',    v => v.toFixed(1)+' N');
+bind('s-freq','freq', 'v-freq', v => v.toFixed(2)+' /s');
+bind('s-dur', 'dur',  'v-dur',  v => v.toFixed(2)+' s');
+bind('s-spd', 'spd',  'v-spd',  v => v.toFixed(1)+' ×');
+
+// =====================================================
+//  DIAGNOSTICS
+// =====================================================
+function updateDiag() {
+  const wn1  = Math.sqrt(Math.max(P.k,0.001)/Math.max(P.m,0.001));
+  const wn2  = Math.sqrt(Math.max(P.k2,0.001)/Math.max(P.m2,0.001));
+  const zeta = P.b / (2 * wn1 * P.m);
+  document.getElementById('d-wn').textContent   = wn1.toFixed(3)+' rad/s';
+  document.getElementById('d-wn2').textContent  = wn2.toFixed(3)+' rad/s';
+  document.getElementById('d-zeta').textContent = isFinite(zeta)?zeta.toFixed(4):'∞';
+  const el = document.getElementById('d-state');
+  el.className = 'state-badge';
+  if (zeta < 0.99)       { el.textContent='⟳ SUBAMORTIGUADO';          el.classList.add('st-sub'); }
+  else if (zeta <= 1.01) { el.textContent='✓ AMORTIGUAMIENTO CRÍTICO'; el.classList.add('st-crit'); }
+  else                   { el.textContent='▽ SOBREAMORTIGUADO';         el.classList.add('st-over'); }
+}
+updateDiag();
+
+// =====================================================
+//  DUAL-MASS ODE  (quarter-car model)
+//  State: [x1, v1, x2, v2]
+//  x1 = chassis disp, x2 = wheel disp (from static)
+//  Equations:
+//   m1*x1'' = -k1*(x1-x2) - b_eff*(v1-v2) - nl*|v1-v2|*(v1-v2)
+//   m2*x2'' = k1*(x1-x2) + b_eff*(v1-v2) + nl*|v1-v2|*(v1-v2) - k2*x2 + F(t)
+// =====================================================
+let ode  = [0, 0, 0, 0]; // x1,v1,x2,v2
+let damperTemp = 25; // °C
+const TEMP_MAX = 180;
+const TEMP_MIN = 25;
+
+function bEff(bRaw, temp) {
+  // viscosity drops ~0.6% per °C above 25 (thermal thinning)
+  const degradation = 1 - 0.004 * (temp - TEMP_MIN);
+  return bRaw * Math.max(0.15, Math.min(1, degradation));
+}
+
+function deriv(y, F, m1,m2,k1,k2,b,nl) {
+  const [x1,v1,x2,v2] = y;
+  const relX = x1 - x2;
+  const relV = v1 - v2;
+  const fSpring  = k1 * relX;
+  const fDamp    = b  * relV;
+  const fNL      = nl * Math.abs(relV) * relV;  // quadratic viscosity
+  const fSus     = fSpring + fDamp + fNL;
+  const fTire    = k2 * x2;
+  return [
+    v1,
+    (-fSus) / m1,
+    v2,
+    (fSus - fTire + F) / m2
+  ];
+}
+
+function rk4(y, F, dt, m1,m2,k1,k2,b,nl) {
+  const d  = (yy) => deriv(yy, F, m1,m2,k1,k2,b,nl);
+  const k1a = d(y);
+  const k2a = d(y.map((v,i)=>v+k1a[i]*dt/2));
+  const k3a = d(y.map((v,i)=>v+k2a[i]*dt/2));
+  const k4a = d(y.map((v,i)=>v+k3a[i]*dt));
+  return y.map((v,i)=>v + dt/6*(k1a[i]+2*k2a[i]+2*k3a[i]+k4a[i]));
+}
+
+// =====================================================
+//  BACHE TIMING
+// =====================================================
+let simTime    = 0;
+let nextBache  = 1.5;
+let bachePhase = -1;
+let curForce   = 0;
+
+// =====================================================
+//  CHART
+// =====================================================
+const canvas = document.getElementById('chart');
+const ctx    = canvas.getContext('2d');
+const HIST   = 400;
+const posH   = new Float32Array(HIST);  // x1
+const pos2H  = new Float32Array(HIST);  // x2
+const frcH   = new Float32Array(HIST);
+const eKinH  = new Float32Array(HIST);
+const ePotH  = new Float32Array(HIST);
+let hIdx = 0, hFull = false;
+let currentTab = 0;
+
+function setTab(n) {
+  currentTab = n;
+  document.querySelectorAll('.ctab').forEach((el,i)=>{
+    el.classList.toggle('active', i===n);
+  });
+  const legends = [
+    `<span><span class="ldot" style="background:#00ff88"></span>x₁ chasis</span>
+     <span><span class="ldot" style="background:#ff6b00"></span>x₂ rueda</span>
+     <span><span class="ldot" style="background:rgba(255,107,0,.5)"></span>F(t)</span>`,
+    `<span><span class="ldot" style="background:#00e5ff"></span>E_cin</span>
+     <span><span class="ldot" style="background:#00ff88"></span>E_pot</span>`,
+    `<span style="color:var(--dim);font-size:.58rem">diagrama de fase: posición vs velocidad del chasis</span>`
+  ];
+  document.getElementById('chart-legend').innerHTML = legends[n];
+}
+
+function sizeCanvas() {
+  const r = canvas.getBoundingClientRect();
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (w>0&&h>0&&(canvas.width!==w||canvas.height!==h)){canvas.width=w;canvas.height=h;}
+}
+
+function drawChart() {
+  const W = canvas.width, H = canvas.height;
+  if (!W||!H) return;
+  ctx.fillStyle='#050810';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='#0c1520'; ctx.lineWidth=1;
+  for(let i=1;i<4;i++){const y=i*H/4; ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(let i=1;i<8;i++){const x=i*W/8; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  ctx.strokeStyle='#162030'; ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+  const count = hFull ? HIST : hIdx;
+  if(count<2){
+    ctx.fillStyle='#2a3a4a';ctx.font='11px Share Tech Mono';
+    ctx.fillText('Esperando primer bache...', W/2-95,H/2+4);
+    return;
+  }
+
+  if(currentTab===0) {
+    // Pos chart
+    let maxAbs=0.0001;
+    for(let i=0;i<count;i++) maxAbs=Math.max(maxAbs,Math.abs(posH[i]),Math.abs(pos2H[i]));
+    maxAbs*=1.3;
+    const yS=(H/2-14)/maxAbs;
+    let maxF=0.0001;
+    for(let i=0;i<count;i++) maxF=Math.max(maxF,Math.abs(frcH[i]));
+    const fS=(H/2-14)/maxF;
+
+    // Force
+    ctx.beginPath();ctx.strokeStyle='rgba(255,107,0,0.4)';ctx.lineWidth=1.5;
+    for(let n=0;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const x=n/(HIST-1)*W, y=H/2-frcH[i]*fS*0.55;
+      n===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // x2 wheel
+    ctx.beginPath();ctx.strokeStyle='rgba(255,107,0,0.7)';ctx.lineWidth=1.5;
+    for(let n=0;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const x=n/(HIST-1)*W, y=H/2-pos2H[i]*yS;
+      n===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // x1 chassis glow
+    ctx.beginPath();ctx.strokeStyle='#00ff88';ctx.lineWidth=2;
+    ctx.shadowColor='#00ff88';ctx.shadowBlur=8;
+    for(let n=0;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const x=n/(HIST-1)*W, y=H/2-posH[i]*yS;
+      n===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();ctx.shadowBlur=0;
+
+    // Live dot
+    const li=hFull?(hIdx-1+HIST)%HIST:Math.max(0,hIdx-1);
+    const dotY=H/2-posH[li]*yS;
+    ctx.fillStyle='#00ff88';ctx.shadowColor='#00ff88';ctx.shadowBlur=14;
+    ctx.beginPath();ctx.arc(W-4,dotY,4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+
+    // Labels
+    ctx.fillStyle='#2a3a50';ctx.font='10px Share Tech Mono';
+    ctx.fillText(`+${maxAbs.toFixed(4)}`,4,13);
+    ctx.fillText(`-${maxAbs.toFixed(4)}`,4,H-4);
+    ctx.fillText('0',4,H/2-3);
+
+  } else if(currentTab===1) {
+    // Energy chart
+    let maxE=0.0001;
+    for(let i=0;i<count;i++) maxE=Math.max(maxE,eKinH[i]+ePotH[i]);
+    const eS=(H-20)/maxE;
+
+    // Potential
+    ctx.beginPath();ctx.strokeStyle='#00ff88';ctx.lineWidth=1.5;
+    for(let n=0;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const x=n/(HIST-1)*W, y=H-4-ePotH[i]*eS;
+      n===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // Kinetic glow
+    ctx.beginPath();ctx.strokeStyle='#00e5ff';ctx.lineWidth=2;
+    ctx.shadowColor='#00e5ff';ctx.shadowBlur=8;
+    for(let n=0;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const x=n/(HIST-1)*W, y=H-4-eKinH[i]*eS;
+      n===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();ctx.shadowBlur=0;
+
+    ctx.fillStyle='#2a3a50';ctx.font='10px Share Tech Mono';
+    ctx.fillText(`${maxE.toFixed(4)} J`,4,13);
+    ctx.fillText('0 J',4,H-4);
+
+  } else {
+    // Phase diagram x1 vs v1
+    let maxX=0.0001, maxV=0.0001;
+    for(let i=0;i<count;i++){
+      maxX=Math.max(maxX,Math.abs(posH[i]));
+    }
+    // need velocity — store separately
+    for(let i=0;i<count;i++){
+      maxV=Math.max(maxV,Math.abs(velH[i]));
+    }
+    maxX*=1.2; maxV*=1.2;
+    const xS=(W/2-12)/maxX, vS=(H/2-12)/maxV;
+
+    // Axes
+    ctx.strokeStyle='#162030'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+
+    // Gradient trail
+    for(let n=1;n<count;n++){
+      const i=hFull?(hIdx+n)%HIST:n;
+      const ip=hFull?(hIdx+n-1)%HIST:n-1;
+      const alpha=n/count;
+      ctx.beginPath();
+      ctx.strokeStyle=`rgba(0,229,255,${alpha*0.85})`;
+      ctx.lineWidth=1.5;
+      ctx.moveTo(W/2+posH[ip]*xS, H/2-velH[ip]*vS);
+      ctx.lineTo(W/2+posH[i]*xS, H/2-velH[i]*vS);
+      ctx.stroke();
+    }
+
+    // Current point
+    const li=hFull?(hIdx-1+HIST)%HIST:Math.max(0,hIdx-1);
+    ctx.fillStyle='#00e5ff';ctx.shadowColor='#00e5ff';ctx.shadowBlur=16;
+    ctx.beginPath();ctx.arc(W/2+posH[li]*xS,H/2-velH[li]*vS,5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+
+    ctx.fillStyle='#2a3a50';ctx.font='10px Share Tech Mono';
+    ctx.fillText('pos →',W-34,H/2+14);
+    ctx.fillText('↑ vel',W/2+4,13);
+  }
+}
+
+// velocity history for phase diagram
+const velH = new Float32Array(HIST);
+
+// =====================================================
+//  VISUAL BACHES
+// =====================================================
+const bacheCont = document.getElementById('bache-container');
+const particlesEl = document.getElementById('particles');
+let visBaches = [];
+
+function spawnBache() {
+  const el = document.createElement('div');
+  el.className='bache';
+  const sceneW = document.getElementById('scene').offsetWidth;
+  el.style.left = sceneW+30+'px';
+  bacheCont.appendChild(el);
+  visBaches.push({el, x:sceneW+30, hit:false});
+}
+
+function spawnParticles(x, y) {
+  for(let i=0;i<10;i++){
+    const p = document.createElement('div');
+    p.className='particle';
+    const angle = Math.random()*Math.PI*2;
+    const dist  = 15+Math.random()*35;
+    p.style.setProperty('--tx', (Math.cos(angle)*dist).toFixed(1)+'px');
+    p.style.setProperty('--ty', (-Math.abs(Math.sin(angle))*dist - 10).toFixed(1)+'px');
+    p.style.setProperty('--dur', (0.3+Math.random()*0.4).toFixed(2)+'s');
+    p.style.left=x+'px'; p.style.top=y+'px';
+    p.style.background=Math.random()>.5?'#ff6b00':'#00e5ff';
+    p.style.width=p.style.height=(1.5+Math.random()*2.5)+'px';
+    particlesEl.appendChild(p);
+    setTimeout(()=>p.remove(), 800);
+  }
+}
+
+function spawnHeat(damper) {
+  const r = damper.getBoundingClientRect();
+  const sr = document.getElementById('scene').getBoundingClientRect();
+  const x = r.left - sr.left + r.width/2;
+  const y = r.top - sr.top;
+  const h = document.createElement('div');
+  h.className='heat-puff';
+  h.style.left=x+'px'; h.style.top=y+'px';
+  h.style.setProperty('--hx',(Math.random()*10-5)+'px');
+  particlesEl.appendChild(h);
+  setTimeout(()=>h.remove(),900);
+}
+
+// =====================================================
+//  CAR REFS
+// =====================================================
+const carEl    = document.getElementById('car');
+const wlEl     = document.getElementById('wl');
+const wrEl     = document.getElementById('wr');
+const waLEl    = document.getElementById('wa-l');
+const waREl    = document.getElementById('wa-r');
+const dmLEl    = document.getElementById('dm-l');
+const dmREl    = document.getElementById('dm-r');
+const dgLEl    = document.getElementById('dg-l');
+const dgREl    = document.getElementById('dg-r');
+const spLEl    = document.getElementById('sp-l');
+const spREl    = document.getElementById('sp-r');
+const flashEl  = document.getElementById('flash');
+
+const PX_PER_UNIT = 55;
+const CAR_X = 150;
+
+let wheelAngle = 0;
+let flashAlpha = 0;
+let heatTimer  = 0;
+
+// =====================================================
+//  STARS + DISTANT MOUNTAINS
+// =====================================================
+{
+  const scene = document.getElementById('scene');
+  // Stars
+  for(let i=0;i<70;i++){
+    const s=document.createElement('div');
+    const sz=Math.random()*1.2+0.3;
+    s.style.cssText=`position:absolute;border-radius:50%;background:#fff;`+
+      `opacity:${(Math.random()*.4+.1).toFixed(2)};`+
+      `width:${sz}px;height:${sz}px;`+
+      `top:${(Math.random()*55).toFixed(1)}%;left:${(Math.random()*100).toFixed(1)}%`;
+    scene.insertBefore(s,scene.firstChild);
+  }
+  // Distant city silhouette
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width','100%'); svg.setAttribute('height','50');
+  svg.style.cssText='position:absolute;bottom:72px;left:0;opacity:.3;pointer-events:none;';
+  svg.innerHTML=`<polyline points="0,50 60,50 60,32 70,32 70,22 80,22 80,30 95,30 95,20 105,20 105,30 118,30 118,15 130,15 130,28 145,28 145,10 158,10 158,28 170,28 170,35 185,35 185,25 198,25 198,35 210,35 210,50 300,50" fill="#0e1820" stroke="none"/>`;
+  scene.insertBefore(svg, scene.children[1]);
+}
+
+// =====================================================
+//  MAIN LOOP
+// =====================================================
+let lastTs = null;
+
+function loop(ts) {
+  if(!lastTs){lastTs=ts;requestAnimationFrame(loop);return;}
+  const realDt = Math.min((ts-lastTs)/1000, 0.05);
+  lastTs=ts;
+  const simDt = realDt*P.spd;
+
+  // Physics sub-steps
+  const SUB=6, subDt=simDt/SUB;
+  let justHit=false;
+  let dissipatedPower=0;
+
+  for(let s=0;s<SUB;s++){
+    simTime+=subDt;
+    if(simTime>=nextBache){
+      bachePhase=0;
+      nextBache=simTime+(1/P.freq);
+      justHit=true;
+      spawnBache();
+    }
+    let F=0;
+    if(bachePhase>=0 && bachePhase<P.dur){
+      F=P.f*FORCE_SCALE*Math.sin(Math.PI*bachePhase/P.dur);
+      bachePhase+=subDt;
+    } else { bachePhase+=subDt; }
+    curForce=F;
+
+    // Thermal degradation of b
+    const bE = bEff(P.b, damperTemp);
+
+    ode = rk4(ode, F, subDt, P.m, P.m2, P.k, P.k2, bE, P.nl);
+
+    // Restitution impulse when wheel crosses zero from below
+    if(ode[2] < 0 && ode[3] < 0){
+      ode[3] = -P.rest * Math.abs(ode[3]);
+      ode[2] = 0;
+    }
+
+    // Dissipated power (heat from damper)
+    const relV = ode[1]-ode[3];
+    const fd = bE*relV + P.nl*Math.abs(relV)*relV;
+    dissipatedPower += Math.abs(fd*relV)*subDt;
+  }
+
+  // Temperature model: heats up with dissipation, cools to ambient
+  const heatRate   = dissipatedPower*0.8;
+  const coolRate   = 0.04*(damperTemp-TEMP_MIN)*realDt;
+  damperTemp = Math.min(TEMP_MAX, Math.max(TEMP_MIN, damperTemp+heatRate-coolRate));
+
+  if(justHit) flashAlpha=1;
+
+  // Chart data
+  posH[hIdx]  = ode[0];
+  pos2H[hIdx] = ode[2];
+  velH[hIdx]  = ode[1];
+  frcH[hIdx]  = curForce/FORCE_SCALE;
+  const ek = 0.5*P.m*ode[1]*ode[1]+0.5*P.m2*ode[3]*ode[3];
+  const ep = 0.5*P.k*ode[0]*ode[0]+0.5*P.k2*ode[2]*ode[2];
+  eKinH[hIdx]=ek; ePotH[hIdx]=ep;
+  hIdx=(hIdx+1)%HIST;
+  if(hIdx===0) hFull=true;
+
+  // Move baches
+  const roadSpd=210*P.spd;
+  const pxStep=roadSpd*realDt;
+  const remove=[];
+  for(const b of visBaches){
+    b.x-=pxStep;
+    b.el.style.left=b.x.toFixed(1)+'px';
+    if(!b.hit && b.x<CAR_X+70 && b.x>CAR_X-10){
+      b.hit=true;
+      // Particles at hit position
+      const sceneRect=document.getElementById('scene').getBoundingClientRect();
+      spawnParticles(b.x+20, 70);
+    }
+    if(b.x<-90) remove.push(b);
+  }
+  for(const b of remove){b.el.remove();visBaches.splice(visBaches.indexOf(b),1);}
+
+  // Car animation
+  const px1=ode[0]*PX_PER_UNIT;  // chassis up
+  const px2=ode[2]*PX_PER_UNIT;  // wheel up
+  const tilt=Math.max(-10,Math.min(10,ode[1]*1.5));
+  carEl.style.transform=`translateY(${(-px1).toFixed(2)}px) rotate(${tilt.toFixed(2)}deg)`;
+
+  // Independent wheel offset relative to chassis
+  const wheelRelPx = (ode[2]-ode[0])*PX_PER_UNIT;
+  waLEl.style.transform=`translateY(${wheelRelPx.toFixed(2)}px)`;
+  waREl.style.transform=`translateY(${wheelRelPx.toFixed(2)}px)`;
+
+  // Spring compression (visual)
+  const compression = Math.max(0.3,(ode[0]-ode[2]));
+  const spH = Math.max(6, 22 - compression*PX_PER_UNIT*0.8);
+  spLEl.style.height=spH+'px';
+  spREl.style.height=spH+'px';
+
+  // Damper height
+  const dmH=Math.max(8,20-Math.abs(px1-px2*0.6));
+  dmLEl.style.height=dmH+'px';
+  dmREl.style.height=dmH+'px';
+
+  // Damper heat glow
+  const tempRatio=(damperTemp-TEMP_MIN)/(TEMP_MAX-TEMP_MIN);
+  const glowR=Math.round(255*Math.min(1,tempRatio*2));
+  const glowG=Math.round(Math.max(0,107-tempRatio*107));
+  const glowIntensity=tempRatio*14;
+  const glowCSS=`box-shadow:0 0 ${glowIntensity.toFixed(1)}px rgba(${glowR},${glowG},0,${(tempRatio*.8).toFixed(2)})`;
+  dgLEl.style.cssText=glowCSS;
+  dgREl.style.cssText=glowCSS;
+
+  // Heat puffs when temp high
+  heatTimer+=realDt;
+  if(tempRatio>0.4 && heatTimer>0.5/tempRatio){
+    heatTimer=0;
+    spawnHeat(dmLEl);
+    if(Math.random()>.5) spawnHeat(dmREl);
+  }
+
+  // Wheel rotation
+  wheelAngle+=realDt*P.spd*190;
+  wlEl.style.transform=`rotate(${wheelAngle.toFixed(1)}deg)`;
+  wrEl.style.transform=`rotate(${wheelAngle.toFixed(1)}deg)`;
+
+  // Flash
+  flashAlpha=Math.max(0,flashAlpha-realDt*7);
+  flashEl.style.opacity=flashAlpha.toFixed(3);
+
+  // Road animation speed
+  const roadDur=(120/roadSpd).toFixed(3)+'s';
+  document.querySelectorAll('.rline').forEach(el=>{
+    if(el.style.animationDuration!==roadDur) el.style.animationDuration=roadDur;
+  });
+
+  // Diagnostics
+  const bE=bEff(P.b,damperTemp);
+  const fNL=P.nl*Math.abs(ode[1]-ode[3])*(ode[1]-ode[3]);
+  document.getElementById('d-pos').textContent   = ode[0].toFixed(5)+' u';
+  document.getElementById('d-pos2').textContent  = ode[2].toFixed(5)+' u';
+  document.getElementById('d-vel').textContent   = ode[1].toFixed(5)+' u/s';
+  document.getElementById('d-force').textContent = curForce.toFixed(3)+' N';
+  document.getElementById('d-nl').textContent    = fNL.toFixed(4)+' N';
+  document.getElementById('d-temp').textContent  = damperTemp.toFixed(1)+'°C';
+  document.getElementById('d-beff').textContent  = bE.toFixed(2)+' Ns/m';
+  document.getElementById('temp-bar').style.width=((damperTemp-TEMP_MIN)/(TEMP_MAX-TEMP_MIN)*100).toFixed(1)+'%';
+
+  // Energies
+  const totE=ek+ep;
+  const maxE=Math.max(totE,0.001);
+  document.getElementById('e-kin').textContent=ek.toFixed(4)+' J';
+  document.getElementById('e-pot').textContent=ep.toFixed(4)+' J';
+  document.getElementById('e-tot').textContent=totE.toFixed(4)+' J';
+  document.getElementById('e-diss').textContent=(dissipatedPower*P.spd).toFixed(4)+' W';
+  document.getElementById('eb-kin').style.width=Math.min(100,(ek/maxE*100)).toFixed(1)+'%';
+  document.getElementById('eb-pot').style.width=Math.min(100,(ep/maxE*100)).toFixed(1)+'%';
+  document.getElementById('eb-tot').style.width='100%';
+  document.getElementById('eb-diss').style.width=Math.min(100,(dissipatedPower*P.spd/maxE*30)).toFixed(1)+'%';
+
+  sizeCanvas();
+  drawChart();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('load',()=>{sizeCanvas();setTimeout(()=>requestAnimationFrame(loop),100);});
+window.addEventListener('resize',sizeCanvas);
+</script>
+</body>
+</html>
